@@ -27,6 +27,26 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env.local
+
+# skills
+.agents/
+skills/
+skills-lock.json
+
+# memory (private)
+memory/
+
+# tool configs (not part of the app)
+.mcp.json
+.windsurf/
+.claude/
+.playwright-mcp/
+
+# temporary screenshots and renders
+screenshot-*.png
+challenge-card.html
+pdf-render.html
 
 # vercel
 .vercel
