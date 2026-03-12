@@ -1,9 +1,9 @@
 'use client';
 
 const WORKSPACES = [
-  { slug: 'default', name: 'Everlast AI (Default)' },
-  { slug: 'demo', name: 'Demo Workspace' },
   { slug: 'ki', name: 'KI Wissensbasis' },
+  { slug: 'demo', name: 'Demo Workspace' },
+  { slug: 'default', name: 'Everlast AI' },
 ];
 
 interface WorkspaceSelectorProps {

@@ -6,7 +6,7 @@ import ChatInterface from '@/components/chat/ChatInterface';
 
 export default function ChatPage() {
   const [workspaceSlug, setWorkspaceSlug] = useState(
-    process.env.NEXT_PUBLIC_DEFAULT_WORKSPACE ?? 'default'
+    process.env.NEXT_PUBLIC_DEFAULT_WORKSPACE ?? 'ki'
   );
   const [chatKey, setChatKey] = useState(0);
 
