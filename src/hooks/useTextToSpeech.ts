@@ -65,56 +65,8 @@ export function useTextToSpeech(): UseTextToSpeechReturn {
   const speak = useCallback(async (text: string) => {
     stop();
     if (!text.trim()) return;
-
-    const controller = new AbortController();
-    abortRef.current = controller;
     setIsLoading(true);
-
-    try {
-      // Try ElevenLabs first
-      const response = await fetch('/api/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text }),
-        signal: controller.signal,
-      });
-
-      if (!response.ok) throw new Error('ElevenLabs TTS failed');
-
-      const blob = await response.blob();
-      if (blob.size < 100) throw new Error('Empty audio response');
-
-      const url = URL.createObjectURL(blob);
-      const audio = new Audio(url);
-      audioRef.current = audio;
-
-      audio.onplay = () => {
-        setIsLoading(false);
-        setIsSpeaking(true);
-      };
-      audio.onended = () => {
-        setIsSpeaking(false);
-        URL.revokeObjectURL(url);
-        audioRef.current = null;
-      };
-      audio.onerror = () => {
-        setIsSpeaking(false);
-        setIsLoading(false);
-        URL.revokeObjectURL(url);
-        audioRef.current = null;
-      };
-
-      await audio.play();
-    } catch (error) {
-      if ((error as Error).name === 'AbortError') {
-        setIsSpeaking(false);
-        setIsLoading(false);
-        return;
-      }
-      // Fallback to browser TTS
-      console.info('ElevenLabs unavailable, using browser TTS');
-      speakWithBrowserTTS(text);
-    }
+    speakWithBrowserTTS(text);
   }, [stop, speakWithBrowserTTS]);
 
   return { isSpeaking, isLoading, speak, stop };
