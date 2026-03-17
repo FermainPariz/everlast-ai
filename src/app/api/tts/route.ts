@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server';
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-// Rachel voice - clear, professional German female
-const DEFAULT_VOICE_ID = '21m00Tcm4TlvDq8ikWAM';
+// Matilda - Knowledgeable, Professional (premade, works on free plan)
+const DEFAULT_VOICE_ID = 'XrExE9yKIg1WjnnlVkGX';
 
 export async function POST(request: NextRequest) {
   try {
