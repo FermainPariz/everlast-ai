@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Sparkles, Copy, Check } from 'lucide-react';
+import { Sparkles, Copy, Check, Volume2, VolumeX, Loader2 } from 'lucide-react';
 import SourceCitations from './SourceCitations';
 import type { SourceCitation } from '@/types';
 
@@ -15,9 +15,20 @@ interface ChatMessage {
 interface MessageBubbleProps {
   message: ChatMessage;
   sources?: SourceCitation[];
+  onSpeak?: (text: string) => void;
+  onStopSpeaking?: () => void;
+  isSpeaking?: boolean;
+  isTtsLoading?: boolean;
 }
 
-export default function MessageBubble({ message, sources }: MessageBubbleProps) {
+export default function MessageBubble({
+  message,
+  sources,
+  onSpeak,
+  onStopSpeaking,
+  isSpeaking = false,
+  isTtsLoading = false,
+}: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const [copied, setCopied] = useState(false);
 
@@ -34,6 +45,14 @@ export default function MessageBubble({ message, sources }: MessageBubbleProps) 
     }
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
+  }
+
+  function handleTts() {
+    if (isSpeaking || isTtsLoading) {
+      onStopSpeaking?.();
+    } else {
+      onSpeak?.(message.content);
+    }
   }
 
   return (
@@ -69,14 +88,36 @@ export default function MessageBubble({ message, sources }: MessageBubbleProps) 
           }
         >
           {!isUser && (
-            <button
-              onClick={handleCopy}
-              aria-label="Antwort kopieren"
-              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded"
-              style={{ color: copied ? '#4ade80' : 'var(--text-secondary)' }}
-            >
-              {copied ? <Check size={13} strokeWidth={2.5} /> : <Copy size={13} strokeWidth={2} />}
-            </button>
+            <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1">
+              {/* TTS button */}
+              {onSpeak && message.content && (
+                <button
+                  onClick={handleTts}
+                  aria-label={isSpeaking ? 'Wiedergabe stoppen' : 'Antwort vorlesen'}
+                  className="p-1 rounded transition-colors"
+                  style={{
+                    color: isSpeaking || isTtsLoading ? '#22d3ee' : 'var(--text-secondary)',
+                  }}
+                >
+                  {isTtsLoading ? (
+                    <Loader2 size={13} strokeWidth={2} className="animate-spin" />
+                  ) : isSpeaking ? (
+                    <VolumeX size={13} strokeWidth={2} />
+                  ) : (
+                    <Volume2 size={13} strokeWidth={2} />
+                  )}
+                </button>
+              )}
+              {/* Copy button */}
+              <button
+                onClick={handleCopy}
+                aria-label="Antwort kopieren"
+                className="p-1 rounded transition-colors"
+                style={{ color: copied ? '#4ade80' : 'var(--text-secondary)' }}
+              >
+                {copied ? <Check size={13} strokeWidth={2.5} /> : <Copy size={13} strokeWidth={2} />}
+              </button>
+            </div>
           )}
           {isUser ? (
             message.content

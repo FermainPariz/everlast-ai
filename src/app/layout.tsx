@@ -16,8 +16,8 @@ const dmMono = DM_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Everlast AI — Wissensassistent',
-  description: 'Stelle Fragen zu Everlast AI, powered by RAG',
+  title: 'Everlast AI — Voice RAG Assistant',
+  description: 'KI-gestützter Wissensassistent mit Sprachsteuerung — powered by RAG, Next.js & Claude',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

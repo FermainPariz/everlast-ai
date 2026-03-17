@@ -1,9 +1,11 @@
 'use client';
 
-import { FormEvent, useEffect, useRef, useState } from 'react';
-import { Sparkles, DollarSign, Zap, Puzzle, MessageCircle } from 'lucide-react';
+import { FormEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { Sparkles, DollarSign, Zap, Puzzle, MessageCircle, Mic } from 'lucide-react';
 import MessageBubble from './MessageBubble';
 import ChatInput from './ChatInput';
+import { useVoiceInput } from '@/hooks/useVoiceInput';
+import { useTextToSpeech } from '@/hooks/useTextToSpeech';
 import type { SourceCitation } from '@/types';
 
 interface ChatInterfaceProps {
@@ -68,6 +70,27 @@ export default function ChatInterface({ workspaceSlug }: ChatInterfaceProps) {
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [pendingSubmit, setPendingSubmit] = useState(false);
+  const [autoSpeak, setAutoSpeak] = useState(true);
+  const lastAssistantIdRef = useRef<string | null>(null);
+
+  // Voice hooks
+  const tts = useTextToSpeech();
+
+  const handleVoiceResult = useCallback((transcript: string) => {
+    setInput(transcript);
+    // Auto-submit after voice input
+    setPendingSubmit(true);
+  }, []);
+
+  const handleVoiceInterim = useCallback((transcript: string) => {
+    setInput(transcript);
+  }, []);
+
+  const voice = useVoiceInput({
+    language: 'de-DE',
+    onResult: handleVoiceResult,
+    onInterim: handleVoiceInterim,
+  });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -78,10 +101,14 @@ export default function ChatInterface({ workspaceSlug }: ChatInterfaceProps) {
     const question = input.trim();
     if (!question || isLoading) return;
 
+    // Stop any ongoing TTS
+    tts.stop();
+
     setInput('');
     const userMsg: ChatMessage = { id: nextId(), role: 'user', content: question };
     const assistantId = nextId();
     const assistantMsg: ChatMessage = { id: assistantId, role: 'assistant', content: '' };
+    lastAssistantIdRef.current = assistantId;
 
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
     setIsLoading(true);
@@ -117,6 +144,11 @@ export default function ChatInterface({ workspaceSlug }: ChatInterfaceProps) {
       setMessages((prev) =>
         prev.map((m) => (m.id === assistantId ? { ...m, sources } : m))
       );
+
+      // Auto-speak the response if enabled
+      if (autoSpeak && fullContent.trim()) {
+        tts.speak(fullContent);
+      }
     } catch (err) {
       console.error(err);
       setMessages((prev) =>
@@ -153,27 +185,43 @@ export default function ChatInterface({ workspaceSlug }: ChatInterfaceProps) {
       <div className="flex-1 overflow-y-auto px-4 py-6">
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-8 animate-fade-in-up">
+            {/* Voice-first hero */}
             <div
-              className="logo-pulse w-16 h-16 rounded-2xl flex items-center justify-center mb-6"
+              className="relative w-20 h-20 rounded-2xl flex items-center justify-center mb-6"
               style={{
                 background: 'linear-gradient(135deg, #22d3ee 0%, #0891b2 100%)',
-                boxShadow: '0 0 40px rgba(34, 211, 238, 0.2)',
+                boxShadow: '0 0 60px rgba(34, 211, 238, 0.25)',
               }}
             >
-              <Sparkles aria-hidden="true" size={28} className="text-black" strokeWidth={2} />
+              <Sparkles aria-hidden="true" size={32} className="text-black" strokeWidth={2} />
+              {/* Voice indicator badge */}
+              <div
+                className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center"
+                style={{
+                  background: 'var(--bg-base)',
+                  border: '2px solid var(--accent-cyan)',
+                }}
+              >
+                <Mic size={12} className="text-cyan-400" />
+              </div>
             </div>
 
             <h2
-              className="text-2xl font-semibold mb-3"
+              className="text-2xl font-semibold mb-2"
               style={{ color: 'var(--text-primary)', textWrap: 'balance' } as React.CSSProperties}
             >
               {meta.title}
             </h2>
-            <p className="text-sm max-w-sm leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+            <p className="text-sm max-w-sm leading-relaxed mb-1" style={{ color: 'var(--text-secondary)' }}>
               {meta.description}
             </p>
+            {voice.isSupported && (
+              <p className="text-xs mb-6" style={{ color: 'var(--accent-cyan-dim)' }}>
+                Auch per Sprache — klicke auf das Mikrofon
+              </p>
+            )}
 
-            <div className="mt-8 grid grid-cols-1 gap-2.5 w-full max-w-sm">
+            <div className="mt-4 grid grid-cols-1 gap-2.5 w-full max-w-sm">
               {suggestions.map(({ text, icon: Icon }) => (
                 <button
                   key={text}
@@ -205,7 +253,15 @@ export default function ChatInterface({ workspaceSlug }: ChatInterfaceProps) {
         ) : (
           <>
             {messages.map((message) => (
-              <MessageBubble key={message.id} message={message} sources={message.sources} />
+              <MessageBubble
+                key={message.id}
+                message={message}
+                sources={message.sources}
+                onSpeak={tts.speak}
+                onStopSpeaking={tts.stop}
+                isSpeaking={tts.isSpeaking}
+                isTtsLoading={tts.isLoading}
+              />
             ))}
             {isLoading && messages.at(-1)?.role === 'assistant' && !messages.at(-1)?.content && (
               <div className="flex justify-start mb-4">
@@ -236,13 +292,71 @@ export default function ChatInterface({ workspaceSlug }: ChatInterfaceProps) {
         )}
       </div>
 
+      {/* Voice status bar */}
+      {(voice.isListening || tts.isSpeaking || tts.isLoading) && (
+        <div
+          className="flex items-center justify-center gap-2 py-2 text-xs"
+          style={{
+            background: voice.isListening
+              ? 'rgba(239, 68, 68, 0.08)'
+              : 'rgba(34, 211, 238, 0.08)',
+            borderTop: voice.isListening
+              ? '1px solid rgba(239, 68, 68, 0.2)'
+              : '1px solid rgba(34, 211, 238, 0.2)',
+          }}
+        >
+          {voice.isListening && (
+            <>
+              <div className="voice-pulse w-2 h-2 rounded-full bg-red-500" />
+              <span style={{ color: '#ef4444' }}>Ich höre zu…</span>
+            </>
+          )}
+          {tts.isLoading && (
+            <>
+              <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+              <span style={{ color: 'var(--accent-cyan)' }}>Generiere Sprache…</span>
+            </>
+          )}
+          {tts.isSpeaking && !tts.isLoading && (
+            <>
+              <div className="voice-wave flex gap-0.5 items-end h-3">
+                {[1,2,3,4,5].map(i => (
+                  <div
+                    key={i}
+                    className="w-0.5 bg-cyan-400 rounded-full"
+                    style={{
+                      animation: `voiceWave 0.6s ease-in-out ${i * 0.1}s infinite alternate`,
+                    }}
+                  />
+                ))}
+              </div>
+              <span style={{ color: 'var(--accent-cyan)' }}>Spricht…</span>
+              <button
+                onClick={tts.stop}
+                className="ml-1 px-2 py-0.5 rounded text-xs transition-colors"
+                style={{
+                  background: 'rgba(34,211,238,0.1)',
+                  color: 'var(--accent-cyan)',
+                  border: '1px solid rgba(34,211,238,0.2)',
+                }}
+              >
+                Stopp
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
       <ChatInput
         ref={formRef}
         input={input}
         isLoading={isLoading}
+        isListening={voice.isListening}
+        isVoiceSupported={voice.isSupported}
         placeholder={meta.placeholder}
         onChange={setInput}
         onSubmit={handleSubmit}
+        onToggleVoice={voice.toggleListening}
       />
     </div>
   );
