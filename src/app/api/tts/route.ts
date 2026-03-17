@@ -50,10 +50,15 @@ export async function POST(request: NextRequest) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('ElevenLabs error:', response.status, errorText);
-      return new Response(JSON.stringify({ error: 'TTS generation failed' }), {
-        status: 502,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({
+          error: 'TTS generation failed',
+          status: response.status,
+          detail: errorText,
+          keyPrefix: ELEVENLABS_API_KEY?.slice(0, 8),
+        }),
+        { status: 502, headers: { 'Content-Type': 'application/json' } }
+      );
     }
 
     // Stream the audio back
